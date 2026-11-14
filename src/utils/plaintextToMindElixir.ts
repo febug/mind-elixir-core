@@ -262,7 +262,7 @@ function parseArrow(content: string, context: ParseContext): Arrow | null {
   // A label may contain "->"; finish at a target followed by the line end or a comment.
   // Bidirectional: [^id1] (x,y) <-label-> (x,y) [^id2]
   const bidirectionalMatch = content.match(
-    /\[\^([\w-]+)\](?:\s*\(([\d.-]+),([\d.-]+)\))?\s*<-(.*?)->(?:\s*\(([\d.-]+),([\d.-]+)\))?\s*\[\^([\w-]+)\](?=\s*(?:#|$))/
+    /\[\^([\w-]+)\](?:\s*\(([\d.-]+),([\d.-]+)\))?\s*<-([\s\S]*?)->(?:\s*\(([\d.-]+),([\d.-]+)\))?\s*\[\^([\w-]+)\](?=\s*(?:#|$))/
   )
   if (bidirectionalMatch) {
     const fromRefId = bidirectionalMatch[1]
@@ -286,7 +286,7 @@ function parseArrow(content: string, context: ParseContext): Arrow | null {
 
   // Forward: [^id1] (x,y) >-label-> (x,y) [^id2]
   const forwardMatch = content.match(
-    /\[\^([\w-]+)\](?:\s*\(([\d.-]+),([\d.-]+)\))?\s*>-(.*?)->(?:\s*\(([\d.-]+),([\d.-]+)\))?\s*\[\^([\w-]+)\](?=\s*(?:#|$))/
+    /\[\^([\w-]+)\](?:\s*\(([\d.-]+),([\d.-]+)\))?\s*>-([\s\S]*?)->(?:\s*\(([\d.-]+),([\d.-]+)\))?\s*\[\^([\w-]+)\](?=\s*(?:#|$))/
   )
   if (forwardMatch) {
     const fromRefId = forwardMatch[1]

@@ -159,4 +159,24 @@ for (const bidirectional of [false, true]) {
       expect(mindElixirToPlaintext(back)).toBe(plaintext)
     }
   })
+
+  for (const [separator, name] of [['\u2028', 'U+2028'], ['\u2029', 'U+2029'], ['\r', 'CR']]) {
+    test(`Arrow labels preserve ${name} (${bidirectional ? 'bidirectional' : 'forward'})`, () => {
+      const label = `first${separator}second`
+      const data = {
+        nodeData: { id: 'root', topic: 'Root', children: [{ id: 'a', topic: 'A' }, { id: 'b', topic: 'B' }] },
+        arrows: [{ id: 'link', label, from: 'a', to: 'b', bidirectional }],
+      }
+      const plaintext = mindElixirToPlaintext(data)
+      const back = plaintextToMindElixir(plaintext)
+      expect(back.arrows).toHaveLength(1)
+      expect(back.arrows![0]).toMatchObject({
+        label,
+        from: back.nodeData.children![0].id,
+        to: back.nodeData.children![1].id,
+      })
+      expect(!!back.arrows![0].bidirectional).toBe(bidirectional)
+      expect(mindElixirToPlaintext(back)).toBe(plaintext)
+    })
+  }
 }
