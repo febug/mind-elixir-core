@@ -73,3 +73,90 @@ test('Backslashes are not swallowed by the escaping', () => {
   const result = plaintextToMindElixir(plaintext)
   expect(result.nodeData.children?.map(c => c.topic)).toEqual(['path\\to\\file', 'tail\nslash'])
 })
+
+test('Reserved topic prefixes survive the round-trip without changing the hierarchy', () => {
+  const data = {
+    nodeData: {
+      id: 'r',
+      topic: 'Root',
+      children: [
+        { id: 'a', topic: '> quoted reply', children: [{ id: 'a1', topic: 'sub' }] },
+        { id: 'b', topic: '} closing brace' },
+        { id: 'c', topic: 'next' },
+      ],
+    },
+    arrows: [{ id: 'x', label: 'follow-up', from: 'a', to: 'c' }],
+  }
+
+  const back = plaintextToMindElixir(mindElixirToPlaintext(data))
+  const children = back.nodeData.children!
+  expect(children.map(child => child.topic)).toEqual(['> quoted reply', '} closing brace', 'next'])
+  expect(children[0].children?.map(child => child.topic)).toEqual(['sub'])
+  expect(back.summaries).toBeUndefined()
+  expect(back.arrows).toHaveLength(1)
+  expect(back.arrows![0]).toMatchObject({ label: 'follow-up', from: children[0].id, to: children[2].id })
+})
+
+test('Topic prefix escaping preserves backslashes, line breaks, references and styles', () => {
+  const topics = ['> quoted', '} brace', '\\> literal', '\\} literal', 'literal\\n', 'real\n> continuation', 'inline \\> and \\}']
+  const data = {
+    nodeData: {
+      id: 'root',
+      topic: '} Root',
+      children: topics.map((topic, index) => ({ id: `node-${index}`, topic })),
+      metadata: { refId: 'root-ref' },
+      style: { color: 'red' },
+    },
+  }
+
+  const back = plaintextToMindElixir(mindElixirToPlaintext(data))
+  expect(back.nodeData.topic).toBe('} Root')
+  expect(back.nodeData.children?.map(child => child.topic)).toEqual(topics)
+  expect(back.nodeData.metadata).toEqual({ refId: 'root-ref' })
+  expect(back.nodeData.style).toEqual({ color: 'red' })
+
+  const raw = plaintextToMindElixir('- inline \\> and \\}')
+  expect(raw.nodeData.topic).toBe('inline \\> and \\}')
+})
+
+test('Unescaped control lines retain their arrow and summary semantics', () => {
+  const plaintext = [
+    '- Root',
+    '  - A [^a] {"color":"red"}',
+    '  - B [^b]',
+    '  - }:2 Summary',
+    '  - > [^a] (0,-1.5) >-Link-> (-2.5,0) [^b] # see -> [^fake]',
+    '  - > not an arrow',
+  ].join('\n')
+  const back = plaintextToMindElixir(plaintext)
+  const [a, b] = back.nodeData.children!
+  expect(back.nodeData.children).toHaveLength(2)
+  expect(a).toMatchObject({ topic: 'A', style: { color: 'red' }, metadata: { refId: 'a' } })
+  expect(back.arrows).toHaveLength(1)
+  expect(back.arrows![0]).toMatchObject({ label: 'Link', from: a.id, to: b.id, delta1: { x: 0, y: -1.5 }, delta2: { x: -2.5, y: 0 } })
+  expect(back.summaries).toHaveLength(1)
+  expect(back.summaries![0]).toMatchObject({ label: 'Summary', parent: back.nodeData.id, start: 0, end: 1 })
+})
+
+for (const bidirectional of [false, true]) {
+  test(`Arrow labels with hyphens survive the round-trip (${bidirectional ? 'bidirectional' : 'forward'})`, () => {
+    for (const label of ['follow-up', 'A->B', 'x-> [^fake] y', '']) {
+      const data = {
+        nodeData: { id: 'root', topic: 'Root', children: [{ id: 'a', topic: 'A' }, { id: 'b', topic: 'B' }] },
+        arrows: [{ id: 'link', label, from: 'a', to: 'b', bidirectional, delta1: { x: 0, y: -1.5 }, delta2: { x: -2.5, y: 0 } }],
+      }
+      const plaintext = mindElixirToPlaintext(data)
+      const back = plaintextToMindElixir(plaintext)
+      expect(back.arrows).toHaveLength(1)
+      expect(back.arrows![0]).toMatchObject({
+        label,
+        from: back.nodeData.children![0].id,
+        to: back.nodeData.children![1].id,
+        delta1: { x: 0, y: -1.5 },
+        delta2: { x: -2.5, y: 0 },
+      })
+      expect(!!back.arrows![0].bidirectional).toBe(bidirectional)
+      expect(mindElixirToPlaintext(back)).toBe(plaintext)
+    }
+  })
+}

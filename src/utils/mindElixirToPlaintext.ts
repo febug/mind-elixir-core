@@ -25,8 +25,12 @@ class PtTree {
  * @param data - The MindElixirData object to convert
  * @returns Plaintext string
  */
-/** Escape `\` and line breaks so a topic survives the line-based format. */
-export const escapeTopic = (topic: string): string => topic.replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n')
+/** Escape `\`, line breaks and control prefixes so a topic remains a node. */
+export const escapeTopic = (topic: string): string =>
+  topic
+    .replace(/\\/g, '\\\\')
+    .replace(/\r?\n/g, '\\n')
+    .replace(/^([>}])/, '\\$1')
 
 export function mindElixirToPlaintext(data: MindElixirData): string {
   const { nodeData, arrows = [], summaries = [] } = data

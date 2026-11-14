@@ -194,8 +194,8 @@ function parseStyleObject(styleStr: string): NodeObj['style'] | null {
   }
 }
 
-/** Inverse of `escapeTopic`: restore escaped line breaks and backslashes. */
-const unescapeTopic = (topic: string): string => topic.replace(/\\(n|\\)/g, (_match, ch) => (ch === 'n' ? '\n' : '\\'))
+/** Decode the control prefix before backslashes so a literal `\\>` stays intact. */
+const unescapeTopic = (topic: string): string => topic.replace(/^\\([>}])/, '$1').replace(/\\(n|\\)/g, (_match, ch) => (ch === 'n' ? '\n' : '\\'))
 
 function parseLine(line: string): ParsedLine {
   const trimmed = line.trim()
@@ -259,9 +259,10 @@ function parseLine(line: string): ParsedLine {
 }
 
 function parseArrow(content: string, context: ParseContext): Arrow | null {
+  // A label may contain "->"; finish at a target followed by the line end or a comment.
   // Bidirectional: [^id1] (x,y) <-label-> (x,y) [^id2]
   const bidirectionalMatch = content.match(
-    /\[\^([\w-]+)\](?:\s*\(([\d.-]+),([\d.-]+)\))?\s*<-([^-]*)->(?:\s*\(([\d.-]+),([\d.-]+)\))?\s*\[\^([\w-]+)\]/
+    /\[\^([\w-]+)\](?:\s*\(([\d.-]+),([\d.-]+)\))?\s*<-(.*?)->(?:\s*\(([\d.-]+),([\d.-]+)\))?\s*\[\^([\w-]+)\](?=\s*(?:#|$))/
   )
   if (bidirectionalMatch) {
     const fromRefId = bidirectionalMatch[1]
@@ -284,7 +285,9 @@ function parseArrow(content: string, context: ParseContext): Arrow | null {
   }
 
   // Forward: [^id1] (x,y) >-label-> (x,y) [^id2]
-  const forwardMatch = content.match(/\[\^([\w-]+)\](?:\s*\(([\d.-]+),([\d.-]+)\))?\s*>-([^-]*)->(?:\s*\(([\d.-]+),([\d.-]+)\))?\s*\[\^([\w-]+)\]/)
+  const forwardMatch = content.match(
+    /\[\^([\w-]+)\](?:\s*\(([\d.-]+),([\d.-]+)\))?\s*>-(.*?)->(?:\s*\(([\d.-]+),([\d.-]+)\))?\s*\[\^([\w-]+)\](?=\s*(?:#|$))/
+  )
   if (forwardMatch) {
     const fromRefId = forwardMatch[1]
     const d1x = forwardMatch[2]
